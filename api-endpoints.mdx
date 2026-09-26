@@ -1,10 +1,10 @@
 ---
-title: "Local REST API Endpoints Reference"
+title: "REST API Endpoints Reference for Controlador de Fechas"
 sidebarTitle: "API Endpoints"
 description: "REST API served by server.ps1 at http://127.0.0.1:8790/api — profiles CRUD, ADB device listing, run control, live state polling, and log file download."
 ---
 
-The PowerShell server exposes a REST API under the `/api/` prefix that the browser panel uses for all dynamic operations. Every request and response body uses JSON encoded as UTF-8. The server binds exclusively to `127.0.0.1` on port `8790` and requires no authentication. All other paths (those not starting with `/api/`) serve static files from the `public/` directory.
+The PowerShell server exposes a REST API under the `/api/` prefix that the browser panel uses for all dynamic operations. Every request and response body uses JSON encoded as UTF-8. The server binds exclusively to `127.0.0.1` on port `8790` and requires no authentication. All error responses share the same shape: `{ "error": "..." }`. All paths that do not start with `/api/` are served as static files from the `public/` directory; any path that resolves outside that directory is rejected with **403**.
 
 ---
 
@@ -28,7 +28,7 @@ curl http://127.0.0.1:8790/api/perfiles
 
 ## GET /api/perfiles/:nombre
 
-Returns the full profile object for the given profile name. URL-encodes the name if it contains spaces.
+Returns the full profile object for the given profile name. URL-encode the name if it contains spaces.
 
 **Path parameter:** `nombre` — the profile name (must match a file in `profiles/<nombre>.json`).
 
@@ -67,7 +67,7 @@ curl http://127.0.0.1:8790/api/perfiles/default
 
 ## POST /api/perfiles/:nombre
 
-Creates or overwrites the profile with the given name. Send the full profile object as the request body.
+Creates or overwrites the profile with the given name. Send the full profile object as the request body. The server also accepts **PUT** for this endpoint — both methods behave identically.
 
 **Path parameter:** `nombre` — target profile name. The server sanitizes it to alphanumeric characters, hyphens, underscores, and spaces; the sanitized name is returned in the response and written into the `nombre` field of the saved file.
 
@@ -81,6 +81,8 @@ Creates or overwrites the profile with the given name. Send the full profile obj
 <ResponseField name="nombre" type="string">
   The sanitized profile name that was actually saved to disk.
 </ResponseField>
+
+Returns **400** with `{ "error": "Cuerpo JSON invalido o vacio." }` if the request body is missing or cannot be parsed.
 
 ```bash
 curl -X POST http://127.0.0.1:8790/api/perfiles/mi-juego \
@@ -181,7 +183,7 @@ Polls the current run state and returns any new log lines since offset `N`. Call
   Error message from the last unhandled exception, or `null` if the run completed without errors.
 </ResponseField>
 <ResponseField name="perfilNombre" type="string | null">
-  Name of the profile being used by the active (or most recent) run, or `null` if no run has been started this session.
+  Name of the profile used by the active (or most recent) run, or `null` if no run has been started this session.
 </ResponseField>
 <ResponseField name="logTotal" type="integer">
   Total number of log lines accumulated since the run started. Use this as the next `desde` value.
@@ -280,7 +282,7 @@ curl -O -J http://127.0.0.1:8790/api/log/descargar
 ---
 
 <Note>
-  All paths that do not start with `/api/` are served as static files from the `public/` directory. A request for `/` is resolved to `public/index.html`. Unknown `/api/` paths return `404` with `{ "error": "Ruta no encontrada." }`.
+  All paths that do not start with `/api/` are served as static files from the `public/` directory. A request for `/` resolves to `public/index.html`. Any path that resolves outside the `public/` directory (e.g. via `../` traversal) is rejected with **403** `{ "error": "Ruta invalida." }`. Unknown `/api/` paths return **404** `{ "error": "Ruta no encontrada." }`.
 </Note>
 
 <Warning>

@@ -1,5 +1,5 @@
 ---
-title: "Controlador de Fechas Panel Overview"
+title: "Controlador de Fechas Web Panel: UI Layout and Controls"
 sidebarTitle: "Panel Overview"
 description: Tour of the web panel UI — ribbon, KPI strip, progress bar, sidebar controls, parameters section, reward sequence editor, and live execution log.
 ---
@@ -10,7 +10,7 @@ The Controlador de Fechas web panel is a browser-based control surface that lets
 
 ### Header ribbon
 
-The ribbon spans the full width of the page and shows the app name **Controlador de Fechas**, the subtitle *Panel de pruebas automatizadas por ADB · uso interno de QA*, and a **live status indicator** on the right. The indicator is a pulsing dot (`#live-dot`) that becomes animated and changes color when a run is actively in progress. The text next to the dot reads **"En vivo"** at idle and **"Corriendo"** during a run.
+The ribbon spans the full width of the page and shows the app name **Controlador de Fechas**, the subtitle *Panel de pruebas automatizadas por ADB · uso interno de QA*, and a **live status indicator** on the right. The indicator is a dot (`#live-dot`) that becomes animated and changes color when a run is actively in progress. The text next to the dot reads **"En vivo"** at idle and **"Corriendo"** during a run. When running, the dot receives the `live-dot-activo` CSS class; when idle it reverts to the plain `live-dot` class.
 
 ### KPI strip
 
@@ -19,13 +19,13 @@ Directly below the ribbon, four cards give you an at-a-glance view of the curren
 | Card | ID | What it shows |
 |---|---|---|
 | **Estado** | `#pill-estado` | A pill badge indicating the run state (see [Status indicator pills](#status-indicator-pills)) |
-| **Iteración** | `#iter-actual` / `#iter-total` | Current iteration counter in the form `X / Y` |
+| **Iteracion** | `#iter-actual` / `#iter-total` | Current iteration counter in the form `X / Y` |
 | **Progreso** | `#progreso-porcentaje` | An integer percentage from 0 to 100 |
 | **Paso actual** | `#paso-actual-texto` | The label of the step the automation is currently executing |
 
 ### Progress bar
 
-Below the KPI strip is a full-width progress card. It contains a human-readable detail line (e.g., *"Iteración 3 de 6 — Atrasando fecha"*) and a smooth animated fill bar that advances incrementally within each iteration — not just at iteration boundaries — to give a realistic sense of forward progress. The fill turns red if the run ended with an error.
+Below the KPI strip is a full-width progress card. It contains a human-readable detail line (e.g., *"Iteracion 3 de 6 — Atrasando fecha"*) and a smooth animated fill bar that advances incrementally within each iteration — not just at iteration boundaries — to give a realistic sense of forward progress. The smooth advance is computed from `fraccionDentroDeIteracion`: completed iterations plus the fractional position of the current step within the full step list, all divided by the total iteration count. The fill turns red if the run ended with an error.
 
 ### Sidebar
 
@@ -33,7 +33,7 @@ The left-hand sidebar is divided into three sections:
 
 <CardGroup cols={1}>
   <Card title="Profiles section">
-    A dropdown (`#select-perfil`) listing all saved profiles from `profiles/*.json`. Below it, three action buttons — **Nuevo**, **Duplicar**, **Eliminar** — plus a **Guardar como** text field and **Guardar** button for saving a profile under a given name.
+    A dropdown (`#select-perfil`) listing all saved profiles from `profiles/*.json`. Below it, three action buttons — **Nuevo** (`btn-nuevo-perfil`), **Duplicar** (`btn-duplicar-perfil`), **Eliminar** (`btn-eliminar-perfil`) — plus a **Guardar como** text field and a **Guardar** button (`btn-guardar-perfil`) for saving a profile under a given name.
   </Card>
   <Card title="Device section">
     A dropdown (`#select-dispositivo`) listing connected ADB devices detected by `adb devices -l`, plus a refresh button (↻) that re-queries the device list on demand. Unauthorized devices are shown disabled with *(no autorizado)* appended.
@@ -47,9 +47,9 @@ The left-hand sidebar is divided into three sections:
 
 The right-hand main area contains three stacked cards:
 
-1. **Parámetros generales** — A two-column form for the six top-level profile fields: game package, browser package, days to roll back, iteration count, app-open timeout, and end-of-cycle pause.
+1. **Parametros generales** — A two-column form for the six top-level profile fields: game package, browser package, days to roll back, iteration count, app-open timeout, and end-of-cycle pause.
 2. **Secuencia de recompensa** — An ordered, editable list of tap and wait steps that run after the game reopens with the real date. Steps can be reordered, edited, or deleted inline, and new steps can be appended with **+ Agregar paso manual**.
-3. **Registro de ejecución** — A scrollable `<pre>` block that streams log lines from the server in real time, with **WARN** lines highlighted in amber and **ERROR** lines in red. A **Descargar log** button opens the full `.log` file from the `logs/` directory, and **Limpiar vista** clears the in-browser display without deleting the file.
+3. **Registro de ejecucion** — A scrollable `<pre>` block that streams log lines from the server in real time, with **WARN** lines highlighted in amber and **ERROR** lines in red. A **Descargar log** button opens the full `.log` file from the `logs/` directory, and **Limpiar vista** clears the in-browser display without deleting the file.
 
 ## Status indicator pills
 
@@ -61,7 +61,7 @@ The **Estado** pill in the KPI strip reflects the current state of the automatio
 |---|---|---|
 | **Detenido** | `pill-idle` | No run is active. The panel is idle and ready to start. |
 | **Corriendo** | `pill-running` | A run is in progress. The live dot pulses and the progress bar advances. |
-| **Deteniendo...** | `pill-stopping` | A stop was requested. The current ADB step will finish, the device clock will be restored, and then the run will exit cleanly. |
+| **Deteniendo...** | `pill-stopping` | A stop was requested (`corriendo && deteniendose`). The current ADB step will finish, the device clock will be restored, and then the run will exit cleanly. |
 | **Error** | `pill-error` | The last run terminated due to an unhandled exception. The error message is stored server-side in `ultimoError`. |
 
 </Accordion>

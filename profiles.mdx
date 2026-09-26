@@ -1,5 +1,5 @@
 ---
-title: "Managing Profiles in Controlador de Fechas"
+title: "Managing Per-Game Profiles in Controlador de Fechas"
 sidebarTitle: "Profiles"
 description: How to create, duplicate, save, and delete profiles that store per-game test parameters and reward sequences as JSON files on disk.
 ---
@@ -8,7 +8,7 @@ Profiles are the primary configuration unit in Controlador de Fechas. Each profi
 
 ## Profile fields
 
-Every profile object contains the following fields, all editable from the **Parámetros generales** form and the **Secuencia de recompensa** editor in the panel:
+Every profile object contains the following eight fields, all editable from the **Parametros generales** form and the **Secuencia de recompensa** editor in the panel:
 
 | Field | Type | Description |
 |---|---|---|
@@ -27,10 +27,10 @@ The sidebar **Perfiles** section exposes four operations:
 
 <Steps>
   <Step title="Nuevo">
-    Creates a blank in-memory profile named `nuevo-perfil` pre-filled with sensible defaults (Brave browser package, 30-day rollback, 10 iterations, 15 s timeout, 2 s window pause, empty step sequence). The profile is **not saved to disk** until you click **Guardar**.
+    Creates a blank in-memory profile with the following exact defaults: `nombre: "nuevo-perfil"`, `paquete: ""`, `paqueteBrave: "com.brave.browser"`, `diasAtraso: 30`, `iteraciones: 10`, `timeoutSegundos: 15`, `segundosVentana: 2`, `pasosRecompensa: []`. The profile is **not saved to disk** until you click **Guardar**.
   </Step>
   <Step title="Duplicar">
-    Copies the currently loaded profile in memory, appending `-copia` to the name. All step IDs are regenerated to avoid collisions. The copy is **not saved to disk** — type a new name in the **Guardar como** field and click **Guardar** to persist it.
+    Copies the currently loaded profile in memory, appending `-copia` to the name (e.g. `default` becomes `default-copia`). All step IDs are regenerated to avoid collisions. The copy is **not saved to disk** — type a new name in the **Guardar como** field and click **Guardar** to persist it.
   </Step>
   <Step title="Guardar">
     Sends the current form state to `POST /api/perfiles/<name>`, which writes `profiles/<name>.json` to disk. The profile dropdown refreshes automatically and selects the newly saved name.

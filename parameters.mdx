@@ -1,25 +1,25 @@
 ---
-title: "General Test Parameters Reference"
+title: "Controlador de Fechas: Test Run Parameters Reference"
 sidebarTitle: "Parameters"
-description: "Reference for all configurable test parameters: game package, browser package, date rollback, iterations, timeouts, and window pause. Changes take effect on the next run."
+description: "Reference for all six profile parameters: game package, browser package, date rollback days, iteration count, app-launch timeout, and end-of-cycle pause."
 ---
 
-The **Parametros generales** section of the control panel exposes every variable that governs a test run. All values are stored inside the profile JSON file for the active profile, so different games can be configured independently. After you edit a parameter and save the profile, the new values are picked up the next time you press **Iniciar**.
+The **Parametros generales** section of the control panel exposes every variable that governs a test run. All values are stored inside the active profile's JSON file, so different games can be configured independently without touching any script. After you edit a parameter and save the profile, the new values are picked up the next time you press **Iniciar**.
 
-<ParamField path="paquete" type="string" required>
-  Android package name of the game to test (e.g. `com.fluffyfairygames.idleminertycoon`). This is the app that gets launched with the rolled-back clock and then re-opened once the real date is restored. ADB uses `adb shell monkey -p <paquete>` to start it.
+<ParamField path="paquete" type="string" default="com.package.example" required>
+  Android package name of the game to test (e.g. `com.package.example`). This is the app that gets launched with the rolled-back clock and then re-opened once the real date is restored. ADB uses `adb shell monkey -p <paquete>` to start it.
 </ParamField>
 
 <ParamField path="paqueteBrave" type="string" default="com.brave.browser">
-  Package name of the browser launched between the two game openings. Switching to another app and back forces the game to reload, which resets the idle reward timer. Any installed browser works — the package just needs to be present on the device.
+  Package name of the browser launched between the two game openings. The browser is opened mid-cycle so that when the game is subsequently reopened, Android treats it as a fresh launch rather than a resume — this causes the game to reload its state from disk and reset the idle reward timer, as if the user had just returned after a long absence. Any browser installed on the device can be used; only the package name needs to be present.
 </ParamField>
 
 <ParamField path="diasAtraso" type="integer" default="30">
-  Number of calendar days to subtract from the current date when rolling back the device clock. For example, a value of `30` sets the device time to 30 days in the past. Setting this too low may not cross the threshold required to trigger the idle reward.
+  Number of calendar days to subtract from the current date when rolling back the device clock. For example, a value of `30` sets the device time 30 days in the past. Setting this too low may not cross the threshold required to trigger the idle reward.
 </ParamField>
 
 <ParamField path="iteraciones" type="integer" default="10">
-  Number of full test cycles to execute. Each cycle follows this sequence:
+  Number of full test cycles to execute in a single run. Each cycle follows this sequence:
 
   1. Roll back the device date by `diasAtraso` days
   2. Open the game (`paquete`) with the fake date

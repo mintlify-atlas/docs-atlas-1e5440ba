@@ -1,6 +1,6 @@
 ---
-title: "script.ps1 CLI Reference"
-sidebarTitle: "script.ps1"
+title: "script.ps1 CLI Reference: All Parameters and Defaults"
+sidebarTitle: "Script Reference"
 description: "PowerShell CLI reference for script.ps1 — all parameters, defaults, and usage examples for running reward test automation from the command line."
 ---
 
@@ -59,7 +59,7 @@ All parameters are optional. The script ships with conservative defaults that wo
 </ParamField>
 
 <ParamField query="EsperaAnuncioSegundos" type="integer" default="6">
-  Estimated duration of the ad or game loading screen before the close **X** button appears (RECOMPENSA P3 in calibration images). Increase this if the ad is not finishing before the X tap fires.
+  Estimated duration of the ad or game loading screen before the close **X** button appears. Increase this if the ad is not finishing before the X tap fires.
 </ParamField>
 
 <ParamField query="EsperaTrasCerrarXSegundos" type="integer" default="2">
@@ -74,8 +74,8 @@ All parameters are optional. The script ships with conservative defaults that wo
   Seconds between each Recolectar tap retry when `IntentosRecolectar` is greater than 1.
 </ParamField>
 
-<ParamField query="LogPath" type="string" default="script.log (script directory)">
-  Path to the output log file. Defaults to `script.log` inside the same directory as `script.ps1`. Every log line is stamped with a timestamp and a level tag (`INFO`, `WARN`, or `ERROR`).
+<ParamField query="LogPath" type="string" default="$PSScriptRoot\script.log">
+  Path to the output log file. Defaults to `script.log` in the same directory as `script.ps1` (resolved at runtime via `Join-Path $PSScriptRoot "script.log"`). Every log line is stamped with a timestamp and a level tag (`INFO`, `WARN`, or `ERROR`).
 </ParamField>
 
 ## Examples
@@ -109,7 +109,7 @@ powershell -ExecutionPolicy Bypass -File script.ps1 `
 
 ## Hardcoded reward coordinates
 
-Unlike the web panel (where each tap step is fully editable in the browser), `script.ps1` has the reward tap coordinates hardcoded inside `Invoke-RewardFlow`. The four calibration points map to the four screens of the "Ganancia de Dinero Inactivo x2" flow (RECOMPENSA P1–P4):
+Unlike the web panel (where each tap step is fully editable in the browser), `script.ps1` has the reward tap coordinates hardcoded inside `Invoke-RewardFlow`. The three tap points cover each interactive screen of the "Ganancia de Dinero Inactivo x2" flow:
 
 | Label | FraccionX | FraccionY |
 |---|---|---|
@@ -127,7 +127,7 @@ Each iteration of the main loop executes these five steps in order:
 2. **Open the game** — launches the game with `adb shell monkey … android.intent.category.LAUNCHER` and polls `dumpsys window` until it reaches the foreground or the timeout fires.
 3. **Open Brave** — same launch-and-wait flow for `$PaqueteBrave`, pushing the game to the background.
 4. **Restore the real date** — calls `Restore-RealTime`, which sets the clock back to `Get-Date` and re-enables auto-sync (`auto_time 1`).
-5. **Reopen the game and run the reward flow** — reopens the game with the corrected date so the server thinks idle time has passed, then `Invoke-RewardFlow` taps through all four reward screens.
+5. **Reopen the game and run the reward flow** — reopens the game with the corrected date so the server thinks idle time has passed, then `Invoke-RewardFlow` executes the three-tap reward sequence (x2 Gratis → X close → Recolectar) with timed waits between each tap.
 
 ## Safety net
 
@@ -151,6 +151,14 @@ This guarantees that even a mid-cycle crash will not leave the Android device st
   The TCP port the HTTP server listens on. The server binds exclusively to `127.0.0.1` (loopback only) and is never accessible from the network. Change this only if port 8790 is already in use on your machine.
 </ParamField>
 
+The recommended way to start the server is via `iniciar.bat`, which calls `server.ps1` with no flags and uses the default port 8790:
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File server.ps1 -Puerto 9000
+powershell -NoProfile -ExecutionPolicy Bypass -File "server.ps1"
+```
+
+To start the server on a custom port instead, call `server.ps1` directly with the `-Puerto` flag:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File server.ps1 -Puerto 9000
 ```

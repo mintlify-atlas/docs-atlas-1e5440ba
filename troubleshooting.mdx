@@ -1,5 +1,5 @@
 ---
-title: "Troubleshooting Controlador de Fechas"
+title: "Fix ADB, Port, and Date Errors in Controlador de Fechas"
 sidebarTitle: "Troubleshooting"
 description: "Fixes for common issues: ADB not found, device not authorized, port permission errors, app not reaching foreground, and date not changing on Android."
 ---
@@ -39,7 +39,11 @@ No se encontro 'adb' en el PATH. Instala Android Platform Tools y agregalo al PA
 
 <Accordion title="No authorized device detected">
 
-**Symptom:** The web panel shows **"Sin dispositivos detectados"**, or the device appears in the list with the label **(no autorizado)**.
+**Symptom:** The web panel shows **"Sin dispositivos detectados"**, or the device appears in the list with the label **(no autorizado)**. When running `script.ps1` directly, the log prints:
+
+```
+No se detecto ningun dispositivo autorizado. Revisa el cable USB y la depuracion USB.
+```
 
 **Fix:**
 
@@ -62,10 +66,10 @@ No se encontro 'adb' en el PATH. Instala Android Platform Tools y agregalo al PA
 
 <Accordion title="Server won't start — port permission error">
 
-**Symptom:** The PowerShell console prints:
+**Symptom:** The PowerShell console prints a line beginning with:
 
 ```
-No se pudo abrir el puerto 8790
+No se pudo abrir el puerto 8790 directamente (...)
 ```
 
 **Cause:** `System.Net.HttpListener` on Windows requires an explicit URL ACL reservation before a non-administrator process can bind to a port. `server.ps1` attempts this automatically by invoking `netsh` with elevated privileges via `Start-Process … -Verb RunAs`.
@@ -156,8 +160,8 @@ powershell -ExecutionPolicy Bypass -File server.ps1 -Puerto 9000
 <Steps>
   <Step title="Take a screenshot of each reward screen">
     ```powershell
-    adb shell screencap -p /sdcard/screen.png
-    adb pull /sdcard/screen.png
+    adb shell screencap -p /sdcard/screenshot.png
+    adb pull /sdcard/screenshot.png
     ```
     Repeat for each screen in the reward flow (popup, ad/loading screen, X button visible, Recolectar button visible).
   </Step>
@@ -166,7 +170,7 @@ powershell -ExecutionPolicy Bypass -File server.ps1 -Puerto 9000
   </Step>
   <Step title="Convert to fractions">
     Divide by the image dimensions:
-    ```
+    ```text
     fx = px / image_width
     fy = py / image_height
     ```

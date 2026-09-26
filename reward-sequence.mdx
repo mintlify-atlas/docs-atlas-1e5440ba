@@ -1,5 +1,5 @@
 ---
-title: "Building Reward Step Sequences"
+title: "Configure Tap-and-Wait Reward Sequences for Any Game"
 sidebarTitle: "Reward Sequence"
 description: How to configure tap-and-wait step sequences that run after the game reopens, using screen-fraction coordinates that work at any display resolution.
 ---
@@ -15,17 +15,17 @@ The sequence supports two step types:
     Pauses execution for a fixed number of seconds. Use this to wait for UI animations to finish, for an ad to load, or for a popup to appear before the next tap. The only required parameter is `segundos` (an integer number of seconds).
   </Card>
   <Card title="tap">
-    Sends a single tap to a point on the screen expressed as `(fx, fy)` — fractions of screen width and height respectively, where `0.0` is the left/top edge and `1.0` is the right/bottom edge. An optional `reintentos` field repeats the tap up to that many times, with `esperaEntreReintentos` seconds between each attempt.
+    Sends a single tap to a point on the screen expressed as `(fx, fy)` — fractions of screen width and height respectively, where `0.0` is the left/top edge and `1.0` is the right/bottom edge. An optional `reintentos` field repeats the tap up to that many times, with `esperaEntreReintentos` seconds between each attempt (defaults to **1 second** when not set).
   </Card>
 </CardGroup>
 
 ## Fraction coordinates explained
 
-When a `tap` step runs, the server calls `adb shell wm size` to read the physical screen resolution. It checks for an override size first, then falls back to the physical size. The pixel coordinates sent to ADB are computed as:
+When a `tap` step runs, the server calls `adb shell wm size` to read the physical screen resolution. It checks for an override size first, then falls back to the physical size. The pixel coordinates sent to ADB are computed using PowerShell's `[int]` cast, which rounds to the nearest integer:
 
 ```text
-x = round(screenWidth  × fx)
-y = round(screenHeight × fy)
+x = [int](screenWidth  × fx)
+y = [int](screenHeight × fy)
 ```
 
 For example, a step with `fx = 0.499` and `fy = 0.732` on a 1080 × 2400 device taps pixel `(539, 1757)`. On a 1440 × 3200 device the same fractions resolve to `(719, 2342)` — hitting the same relative position without any modification to the profile.
@@ -38,12 +38,12 @@ The `default.json` profile ships with six calibrated steps for *Idle Miner Tycoo
 
 | # | Label | Type | Parameters |
 |---|---|---|---|
-| 1 | Esperar popup inicial | `esperar` | 2 s |
-| 2 | Tocar botón 'x2 Gratis' | `tap` | fx=0.304, fy=0.678, reintentos=1 |
-| 3 | Esperar anuncio/carga | `esperar` | 6 s |
-| 4 | Tocar 'X' de cierre | `tap` | fx=0.925, fy=0.032, reintentos=1 |
-| 5 | Esperar tras cerrar la X | `esperar` | 2 s |
-| 6 | Tocar 'Recolectar' | `tap` | fx=0.499, fy=0.732, reintentos=1, esperaEntreReintentos=2 |
+| 1 | `Esperar popup inicial` | `esperar` | 2 s |
+| 2 | `Tocar boton 'x2 Gratis'` | `tap` | fx=0.304, fy=0.678, reintentos=1 |
+| 3 | `Esperar anuncio/carga` | `esperar` | 6 s |
+| 4 | `Tocar 'X' de cierre` | `tap` | fx=0.925, fy=0.032, reintentos=1 |
+| 5 | `Esperar tras cerrar la X` | `esperar` | 2 s |
+| 6 | `Tocar 'Recolectar'` | `tap` | fx=0.499, fy=0.732, reintentos=1, esperaEntreReintentos=2 |
 
 The sequence waits for the initial popup, taps the double-reward button, waits for the ad to load and play, closes the ad with the X, waits for the post-ad transition, then collects the reward.
 
@@ -68,6 +68,8 @@ Each row in the **Secuencia de recompensa** card exposes the following controls:
     - **x** — fraction of screen width (`fx`), range 0.000–1.000, step 0.001.
     - **y** — fraction of screen height (`fy`), range 0.000–1.000, step 0.001.
     - **reintentos** — integer number of tap attempts (minimum 1). Set above 1 if the button may not be present on the first tap.
+
+    When `reintentos` is greater than 1, the server waits `esperaEntreReintentos` seconds between attempts. If `esperaEntreReintentos` is not set in the step, it defaults to **1 second**.
   </Tab>
 </Tabs>
 
@@ -79,7 +81,7 @@ To calibrate tap coordinates for a new game:
 
 <Steps>
   <Step title="Capture a screenshot via ADB">
-    Run the following commands in a terminal to take a screenshot on the device and pull it to your PC:
+    Run the following two commands in a terminal to take a screenshot on the device and pull it to your PC:
 
     ```bash
     adb shell screencap -p /sdcard/screenshot.png
@@ -107,7 +109,7 @@ To calibrate tap coordinates for a new game:
 </Steps>
 
 <Tip>
-  If a button appears with variable delay — for example after an ad finishes loading — increase the `reintentos` value on that tap step. Each retry taps the same coordinates again after `esperaEntreReintentos` seconds, giving the button time to appear before giving up.
+  If a button appears with variable delay — for example after an ad finishes loading — increase the `reintentos` value on that tap step. Each retry taps the same coordinates again after `esperaEntreReintentos` seconds (default 1 s), giving the button time to appear before giving up.
 </Tip>
 
 <Note>

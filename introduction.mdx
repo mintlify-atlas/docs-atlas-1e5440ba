@@ -29,6 +29,9 @@ The tool runs a repeatable, multi-step cycle for as many iterations as you confi
   <Step title="Execute the reward sequence">
     The configurable tap/wait sequence runs: wait for the popup, tap the reward button, wait for an ad or loading screen, close it, wait again, then tap "Collect". All coordinates are expressed as screen fractions so they work on any device resolution.
   </Step>
+  <Step title="Window pause">
+    After the reward sequence completes, the tool waits for the configured number of seconds (`segundosVentana`) before starting the next iteration. This brief pause lets any closing animations settle before the next clock change begins.
+  </Step>
 </Steps>
 
 ## Key features

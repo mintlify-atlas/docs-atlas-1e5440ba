@@ -1,5 +1,5 @@
 ---
-title: "Get Started with Controlador de Fechas"
+title: "Controlador de Fechas: Run Your First Automated Reward Test"
 sidebarTitle: "Quickstart"
 description: "Step-by-step guide to launch the panel, connect a device, configure a profile, and run your first automated Android reward test in about five minutes."
 ---
@@ -26,7 +26,7 @@ This page walks you through everything from downloading the project to watching 
 
     Expected output (the serial number will differ on your device):
 
-    ```
+    ```text
     List of devices attached
     R58M123ABCD     device
     ```
@@ -43,7 +43,7 @@ This page walks you through everything from downloading the project to watching 
 
     The console prints the startup banner in green:
 
-    ```
+    ```text
     ============================================================
      Controlador de Fechas - Panel de pruebas
      Abre en tu navegador: http://127.0.0.1:8790/
@@ -68,6 +68,7 @@ This page walks you through everything from downloading the project to watching 
     | Días de atraso | `4` | How many days to roll the clock back |
     | Iteraciones | `6` | Number of full reward cycles to run |
     | Timeout (s) | `15` | Max seconds to wait for an app to reach the foreground |
+    | Segundos ventana | `2` | Pause in seconds after each reward sequence before the next iteration |
 
     The device selector at the top of the panel auto-populates from `adb devices`. Select your connected device from the dropdown.
   </Step>

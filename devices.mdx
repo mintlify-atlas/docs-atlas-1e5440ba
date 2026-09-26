@@ -1,5 +1,5 @@
 ---
-title: "Connecting Android Devices via ADB"
+title: "Connect, Detect, and Authorize Android Devices with ADB"
 sidebarTitle: "Devices"
 description: How the panel detects connected ADB devices, selects a target device for multi-device setups, and resolves unauthorized or missing device connections.
 ---
@@ -20,9 +20,9 @@ Both paths hit `GET /api/dispositivos`, which runs `adb devices -l` internally a
 | `id` | string | ADB device serial (e.g. `emulator-5554` or `R5CT71AAXYZ`) |
 | `estado` | string | Raw status word from ADB (`device`, `unauthorized`, `offline`, etc.) |
 | `detalle` | string | Extra model/transport information from the `-l` flag |
-| `autorizado` | boolean | `true` only when `estado === "device"` |
+| `autorizado` | boolean | `true` only when `estado` is `"device"` |
 
-In the dropdown, authorized devices show their serial and detail string. Unauthorized devices are shown with `(no autorizado)` appended and their `<option>` element is **disabled**, preventing them from being selected as a target.
+In the dropdown, each option is built as: the device serial (`id`), followed by `" (no autorizado)"` if the device is not authorized, followed by `" — "` and the detail string if one is present. Unauthorized devices have their `<option>` element **disabled**, preventing them from being selected as a target.
 
 ## Selecting a device
 
@@ -30,7 +30,7 @@ When multiple authorized devices appear in the dropdown, choose the one you want
 
 ```json
 {
-  "perfil": { ... },
+  "perfil": { },
   "deviceId": "R5CT71AAXYZ"
 }
 ```
