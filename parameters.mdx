@@ -1,0 +1,42 @@
+---
+title: "General Test Parameters Reference"
+sidebarTitle: "Parameters"
+description: "Reference for all configurable test parameters: game package, browser package, date rollback, iterations, timeouts, and window pause. Changes take effect on the next run."
+---
+
+The **Parametros generales** section of the control panel exposes every variable that governs a test run. All values are stored inside the profile JSON file for the active profile, so different games can be configured independently. After you edit a parameter and save the profile, the new values are picked up the next time you press **Iniciar**.
+
+<ParamField path="paquete" type="string" required>
+  Android package name of the game to test (e.g. `com.fluffyfairygames.idleminertycoon`). This is the app that gets launched with the rolled-back clock and then re-opened once the real date is restored. ADB uses `adb shell monkey -p <paquete>` to start it.
+</ParamField>
+
+<ParamField path="paqueteBrave" type="string" default="com.brave.browser">
+  Package name of the browser launched between the two game openings. Switching to another app and back forces the game to reload, which resets the idle reward timer. Any installed browser works — the package just needs to be present on the device.
+</ParamField>
+
+<ParamField path="diasAtraso" type="integer" default="30">
+  Number of calendar days to subtract from the current date when rolling back the device clock. For example, a value of `30` sets the device time to 30 days in the past. Setting this too low may not cross the threshold required to trigger the idle reward.
+</ParamField>
+
+<ParamField path="iteraciones" type="integer" default="10">
+  Number of full test cycles to execute. Each cycle follows this sequence:
+
+  1. Roll back the device date by `diasAtraso` days
+  2. Open the game (`paquete`) with the fake date
+  3. Open the browser (`paqueteBrave`)
+  4. Restore the real date
+  5. Re-open the game with the real date
+  6. Execute the reward step sequence (`pasosRecompensa`)
+</ParamField>
+
+<ParamField path="timeoutSegundos" type="integer" default="15">
+  Maximum number of seconds to wait for an app to reach the foreground after it has been launched. The server polls `adb shell dumpsys window` every 500 ms looking for the package name in `mCurrentFocus`. If the app does not appear within this window, a `WARN` entry is written to the log and execution continues with the next step.
+</ParamField>
+
+<ParamField path="segundosVentana" type="integer" default="2">
+  Extra pause in seconds appended to the end of each cycle, after the last reward step completes. This gives on-screen animations time to finish before the next cycle begins. Increase this value if reward animations are still playing when the next rollback starts.
+</ParamField>
+
+<Note>
+  All parameters are saved per profile — you can have one profile for a game that needs a 4-day rollback and 6 iterations, and another for a game that needs 30 days and 20 iterations, without ever editing the script.
+</Note>

@@ -1,0 +1,288 @@
+---
+title: "Local REST API Endpoints Reference"
+sidebarTitle: "API Endpoints"
+description: "REST API served by server.ps1 at http://127.0.0.1:8790/api — profiles CRUD, ADB device listing, run control, live state polling, and log file download."
+---
+
+The PowerShell server exposes a REST API under the `/api/` prefix that the browser panel uses for all dynamic operations. Every request and response body uses JSON encoded as UTF-8. The server binds exclusively to `127.0.0.1` on port `8790` and requires no authentication. All other paths (those not starting with `/api/`) serve static files from the `public/` directory.
+
+---
+
+## GET /api/perfiles
+
+Returns the list of profile names currently saved in the `profiles/` directory, sorted alphabetically.
+
+<ResponseField name="perfiles" type="string[]">
+  Array of profile name strings (without the `.json` extension), e.g. `["default", "simple"]`.
+</ResponseField>
+
+```bash
+curl http://127.0.0.1:8790/api/perfiles
+```
+
+```json
+{ "perfiles": ["default", "simple"] }
+```
+
+---
+
+## GET /api/perfiles/:nombre
+
+Returns the full profile object for the given profile name. URL-encodes the name if it contains spaces.
+
+**Path parameter:** `nombre` — the profile name (must match a file in `profiles/<nombre>.json`).
+
+<ResponseField name="nombre" type="string">
+  Profile name as stored on disk.
+</ResponseField>
+<ResponseField name="paquete" type="string">
+  Android package name of the game under test.
+</ResponseField>
+<ResponseField name="paqueteBrave" type="string">
+  Package name of the browser app used between game launches.
+</ResponseField>
+<ResponseField name="diasAtraso" type="integer">
+  Days to subtract from today when rolling back the device clock.
+</ResponseField>
+<ResponseField name="iteraciones" type="integer">
+  Number of complete test cycles to run.
+</ResponseField>
+<ResponseField name="timeoutSegundos" type="integer">
+  Maximum seconds to wait for an app to reach the foreground.
+</ResponseField>
+<ResponseField name="segundosVentana" type="integer">
+  Extra pause in seconds at the end of each cycle.
+</ResponseField>
+<ResponseField name="pasosRecompensa" type="array">
+  Ordered array of step objects (see [Profile Schema](/profile-schema) for the step shape).
+</ResponseField>
+
+Returns **404** with `{ "error": "Perfil no encontrado." }` if no file matches the name.
+
+```bash
+curl http://127.0.0.1:8790/api/perfiles/default
+```
+
+---
+
+## POST /api/perfiles/:nombre
+
+Creates or overwrites the profile with the given name. Send the full profile object as the request body.
+
+**Path parameter:** `nombre` — target profile name. The server sanitizes it to alphanumeric characters, hyphens, underscores, and spaces; the sanitized name is returned in the response and written into the `nombre` field of the saved file.
+
+<ParamField body="(profile object)" type="object" required>
+  Full profile JSON object matching the schema documented in [Profile Schema](/profile-schema). The `nombre` field inside the body is overwritten with the sanitized path parameter before saving.
+</ParamField>
+
+<ResponseField name="ok" type="boolean">
+  `true` on success.
+</ResponseField>
+<ResponseField name="nombre" type="string">
+  The sanitized profile name that was actually saved to disk.
+</ResponseField>
+
+```bash
+curl -X POST http://127.0.0.1:8790/api/perfiles/mi-juego \
+  -H "Content-Type: application/json" \
+  -d '{"nombre":"mi-juego","paquete":"com.example.game","paqueteBrave":"com.brave.browser","diasAtraso":30,"iteraciones":10,"timeoutSegundos":15,"segundosVentana":2,"pasosRecompensa":[]}'
+```
+
+```json
+{ "ok": true, "nombre": "mi-juego" }
+```
+
+---
+
+## DELETE /api/perfiles/:nombre
+
+Deletes the profile file for the given name. Succeeds silently if the file does not exist.
+
+**Path parameter:** `nombre` — profile name to delete.
+
+<ResponseField name="ok" type="boolean">
+  `true` after the file has been removed (or was already absent).
+</ResponseField>
+
+```bash
+curl -X DELETE http://127.0.0.1:8790/api/perfiles/mi-juego
+```
+
+```json
+{ "ok": true }
+```
+
+---
+
+## GET /api/dispositivos
+
+Queries `adb devices -l` and returns all detected devices, including unauthorized ones.
+
+<ResponseField name="dispositivos" type="array">
+  Array of device objects. Each object contains:
+
+  <Expandable title="Device object fields">
+    <ResponseField name="id" type="string">
+      ADB device serial number or transport identifier (e.g. `emulator-5554`, `R58M12345`).
+    </ResponseField>
+    <ResponseField name="estado" type="string">
+      ADB connection state string. Common values: `device` (authorized and ready), `unauthorized`, `offline`.
+    </ResponseField>
+    <ResponseField name="detalle" type="string">
+      Extra detail string from the `adb devices -l` output (model, transport, USB path, etc.).
+    </ResponseField>
+    <ResponseField name="autorizado" type="boolean">
+      `true` when `estado` equals `"device"` (the device is fully authorized for ADB commands).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl http://127.0.0.1:8790/api/dispositivos
+```
+
+```json
+{
+  "dispositivos": [
+    {
+      "id": "R58M123456",
+      "estado": "device",
+      "detalle": "model:SM_G991B transport_id:1",
+      "autorizado": true
+    }
+  ]
+}
+```
+
+---
+
+## GET /api/estado?desde=N
+
+Polls the current run state and returns any new log lines since offset `N`. Call this endpoint repeatedly (the panel polls every 1 200 ms) to stream progress without long-polling.
+
+**Query parameter:** `desde` (integer, optional, default `0`) — index of the first log line to return. Pass the value of `logTotal` from the previous response to receive only new lines.
+
+<ResponseField name="corriendo" type="boolean">
+  `true` while a test run is actively executing.
+</ResponseField>
+<ResponseField name="deteniendose" type="boolean">
+  `true` when a stop has been requested but the current step has not yet finished.
+</ResponseField>
+<ResponseField name="iteracionActual" type="integer">
+  Index of the cycle currently in progress (1-based). `0` if no run has started.
+</ResponseField>
+<ResponseField name="iteracionesTotal" type="integer">
+  Total number of cycles configured for the active run.
+</ResponseField>
+<ResponseField name="pasoActual" type="string">
+  Human-readable label of the step currently executing (e.g. `"Atrasando fecha"`, `"Tocar 'Recolectar'"`). Empty string when idle.
+</ResponseField>
+<ResponseField name="ultimoError" type="string | null">
+  Error message from the last unhandled exception, or `null` if the run completed without errors.
+</ResponseField>
+<ResponseField name="perfilNombre" type="string | null">
+  Name of the profile being used by the active (or most recent) run, or `null` if no run has been started this session.
+</ResponseField>
+<ResponseField name="logTotal" type="integer">
+  Total number of log lines accumulated since the run started. Use this as the next `desde` value.
+</ResponseField>
+<ResponseField name="log" type="string[]">
+  Array of new log lines since offset `desde`. Each line is formatted as `[yyyy-MM-dd HH:mm:ss] [LEVEL] message`.
+</ResponseField>
+<ResponseField name="logFile" type="string | null">
+  Absolute path on the server machine to the log file for the current run, or `null` if no run has started.
+</ResponseField>
+
+```bash
+curl "http://127.0.0.1:8790/api/estado?desde=0"
+```
+
+```json
+{
+  "corriendo": true,
+  "deteniendose": false,
+  "iteracionActual": 2,
+  "iteracionesTotal": 6,
+  "pasoActual": "Tocar boton 'x2 Gratis'",
+  "ultimoError": null,
+  "perfilNombre": "default",
+  "logTotal": 14,
+  "log": [
+    "[2024-11-01 10:32:01] [INFO] ===== Iteracion 2 de 6 =====",
+    "[2024-11-01 10:32:01] [INFO] Ajustando fecha del dispositivo a 2024-10-28..."
+  ],
+  "logFile": "C:\\Users\\user\\controlador-fechas\\logs\\corrida_default_20241101_103158.log"
+}
+```
+
+---
+
+## POST /api/iniciar
+
+Starts a new test run in a background runspace. The run cannot be started if one is already in progress.
+
+<ParamField body="perfil" type="object" required>
+  Full profile object to use for this run. The panel sends the current in-memory profile (which may differ from the saved file if the user has made unsaved changes).
+</ParamField>
+
+<ParamField body="deviceId" type="string | null">
+  ADB device serial to target, as returned by `GET /api/dispositivos`. Pass `null` to let ADB pick the only connected device automatically.
+</ParamField>
+
+<ResponseField name="ok" type="boolean">
+  `true` when the run was successfully started.
+</ResponseField>
+
+Returns **409** with `{ "error": "Ya hay una corrida en curso." }` if a run is already active.
+
+```bash
+curl -X POST http://127.0.0.1:8790/api/iniciar \
+  -H "Content-Type: application/json" \
+  -d '{"perfil":{"nombre":"default","paquete":"com.fluffyfairygames.idleminertycoon","paqueteBrave":"com.brave.browser","diasAtraso":4,"iteraciones":6,"timeoutSegundos":15,"segundosVentana":2,"pasosRecompensa":[]},"deviceId":null}'
+```
+
+```json
+{ "ok": true }
+```
+
+---
+
+## POST /api/detener
+
+Requests a graceful stop of the currently running test. The stop is **asynchronous** — the server sets an internal flag that the background runspace checks between steps. The run finishes its current step, then restores the device to the real system time before exiting.
+
+<ResponseField name="ok" type="boolean">
+  `true` immediately, even before the run has actually stopped. Poll `GET /api/estado` until `corriendo` becomes `false` to confirm the run has ended.
+</ResponseField>
+
+```bash
+curl -X POST http://127.0.0.1:8790/api/detener
+```
+
+```json
+{ "ok": true }
+```
+
+---
+
+## GET /api/log/descargar
+
+Downloads the log file for the current (or most recently completed) run as a plain-text attachment.
+
+The response has `Content-Type: text/plain; charset=utf-8` and a `Content-Disposition: attachment` header. The filename follows the pattern `corrida_<perfil>_<yyyyMMdd_HHmmss>.log` (e.g. `corrida_default_20241101_103158.log`).
+
+Returns **404** with `{ "error": "No hay log disponible todavia." }` if no run has been started in the current server session.
+
+```bash
+curl -O -J http://127.0.0.1:8790/api/log/descargar
+```
+
+---
+
+<Note>
+  All paths that do not start with `/api/` are served as static files from the `public/` directory. A request for `/` is resolved to `public/index.html`. Unknown `/api/` paths return `404` with `{ "error": "Ruta no encontrada." }`.
+</Note>
+
+<Warning>
+  The API has no authentication layer. It binds exclusively to `127.0.0.1` and is not reachable from other machines on the network. Do not expose port `8790` through a firewall, reverse proxy, or tunnel.
+</Warning>

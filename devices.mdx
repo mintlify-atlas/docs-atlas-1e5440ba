@@ -1,0 +1,72 @@
+---
+title: "Connecting Android Devices via ADB"
+sidebarTitle: "Devices"
+description: How the panel detects connected ADB devices, selects a target device for multi-device setups, and resolves unauthorized or missing device connections.
+---
+
+Controlador de Fechas communicates with Android devices exclusively through ADB (Android Debug Bridge). The web panel wraps ADB device discovery in a live dropdown so you can select a specific target without editing any script — particularly useful when more than one phone is plugged in at the same time. The server runs all ADB commands on the Windows host and requires `adb` to be installed and available on the system `PATH`.
+
+## Device detection
+
+The panel queries connected devices in two ways:
+
+1. **On page load** — `cargarDispositivos()` is called immediately when the page initializes.
+2. **On demand** — clicking the refresh button (↻) next to the device dropdown triggers the same function manually.
+
+Both paths hit `GET /api/dispositivos`, which runs `adb devices -l` internally and parses each line of output. The server returns an array of device objects:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | ADB device serial (e.g. `emulator-5554` or `R5CT71AAXYZ`) |
+| `estado` | string | Raw status word from ADB (`device`, `unauthorized`, `offline`, etc.) |
+| `detalle` | string | Extra model/transport information from the `-l` flag |
+| `autorizado` | boolean | `true` only when `estado === "device"` |
+
+In the dropdown, authorized devices show their serial and detail string. Unauthorized devices are shown with `(no autorizado)` appended and their `<option>` element is **disabled**, preventing them from being selected as a target.
+
+## Selecting a device
+
+When multiple authorized devices appear in the dropdown, choose the one you want to target before clicking **Iniciar prueba**. The selected device ID is read by `dispositivoSeleccionado()` and sent to the server as the `deviceId` field in the `POST /api/iniciar` request body:
+
+```json
+{
+  "perfil": { ... },
+  "deviceId": "R5CT71AAXYZ"
+}
+```
+
+Every subsequent ADB call during that run prefixes its arguments with `-s <deviceId>`, scoping all commands to that specific device. If `deviceId` is `null` (no device selected or none found), ADB falls back to its default single-device behavior.
+
+## Device authorization
+
+A freshly connected phone will appear as `unauthorized` until it approves the USB debugging request. Authorize it with these steps:
+
+<Steps>
+  <Step title="Connect via USB">
+    Plug the Android device into your PC with a USB cable. Make sure USB Debugging is enabled in **Developer Options** on the phone.
+  </Step>
+  <Step title="Approve the dialog on the device">
+    The phone will display an **"Allow USB debugging?"** dialog showing your PC's RSA key fingerprint. Tap **Allow** (optionally check *Always allow from this computer* to avoid repeating this step).
+  </Step>
+  <Step title="Refresh the device list in the panel">
+    Click the ↻ button in the **Dispositivo** section of the sidebar. The device should now appear as enabled in the dropdown, and the status message will update to show the number of authorized devices.
+  </Step>
+</Steps>
+
+Example output of `adb devices` with one authorized device and one awaiting authorization:
+
+```bash
+List of devices attached
+R5CT71AAXYZ     device product:beyond1 model:SM_G973F device:beyond1
+192.168.1.42:5555  unauthorized
+```
+
+The first entry (`device`) maps to `autorizado: true` in the panel. The second (`unauthorized`) maps to `autorizado: false` and is shown grayed-out in the dropdown.
+
+<Warning>
+  If no authorized device is found when you click **Iniciar prueba**, the server will still accept the start request and the automation loop will begin — but every ADB command will fail because there is no valid target. Always confirm that at least one device shows as authorized in the dropdown before starting a run. The status message below the dropdown will indicate *"1 dispositivo(s) autorizado(s)."* when everything is ready.
+</Warning>
+
+## Automatic refresh
+
+The panel polls `GET /api/dispositivos` every **15 seconds** via `setInterval(cargarDispositivos, 15000)` in `app.js`. This means you generally do not need to click ↻ after plugging in a device — the dropdown will update on its own within the next polling cycle. The refresh button is useful when you want the update immediately rather than waiting up to 15 seconds.

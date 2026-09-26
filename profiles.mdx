@@ -1,0 +1,75 @@
+---
+title: "Managing Profiles in Controlador de Fechas"
+sidebarTitle: "Profiles"
+description: How to create, duplicate, save, and delete profiles that store per-game test parameters and reward sequences as JSON files on disk.
+---
+
+Profiles are the primary configuration unit in Controlador de Fechas. Each profile is a JSON file stored in the `profiles/` folder at the project root and captures everything needed to test one specific game: the Android package name, timing values, iteration count, and the full ordered sequence of reward steps. Creating one profile per game means you can switch between titles instantly from the sidebar dropdown without editing any script. On first launch, if no profiles exist, the server automatically generates `profiles/default.json` as a starting point.
+
+## Profile fields
+
+Every profile object contains the following fields, all editable from the **Parámetros generales** form and the **Secuencia de recompensa** editor in the panel:
+
+| Field | Type | Description |
+|---|---|---|
+| `nombre` | string | Profile name. Also used as the filename (`profiles/<nombre>.json`). |
+| `paquete` | string | Android package name of the game to test (e.g. `com.fluffyfairygames.idleminertycoon`). |
+| `paqueteBrave` | string | Package name of the browser to switch to mid-cycle while the device clock is being restored (e.g. `com.brave.browser`). |
+| `diasAtraso` | integer | Number of days to roll the device clock back at the start of each iteration. |
+| `iteraciones` | integer | Total number of full test cycles to run. |
+| `timeoutSegundos` | integer | Seconds to wait for an app to reach the foreground before logging a warning and continuing. |
+| `segundosVentana` | integer | Pause in seconds added at the end of each full cycle before the next iteration begins. |
+| `pasosRecompensa` | array | Ordered list of tap and wait step objects executed after the game reopens with the real date. See [Reward Sequence](/reward-sequence) for the step schema. |
+
+## Profile actions
+
+The sidebar **Perfiles** section exposes four operations:
+
+<Steps>
+  <Step title="Nuevo">
+    Creates a blank in-memory profile named `nuevo-perfil` pre-filled with sensible defaults (Brave browser package, 30-day rollback, 10 iterations, 15 s timeout, 2 s window pause, empty step sequence). The profile is **not saved to disk** until you click **Guardar**.
+  </Step>
+  <Step title="Duplicar">
+    Copies the currently loaded profile in memory, appending `-copia` to the name. All step IDs are regenerated to avoid collisions. The copy is **not saved to disk** — type a new name in the **Guardar como** field and click **Guardar** to persist it.
+  </Step>
+  <Step title="Guardar">
+    Sends the current form state to `POST /api/perfiles/<name>`, which writes `profiles/<name>.json` to disk. The profile dropdown refreshes automatically and selects the newly saved name.
+  </Step>
+  <Step title="Eliminar">
+    Deletes `profiles/<nombre>.json` from disk via `DELETE /api/perfiles/<name>`. The panel first shows a browser confirm dialog; dismissing it cancels the operation. At least one profile must always remain — the button is blocked and shows an error if only one profile exists.
+  </Step>
+</Steps>
+
+## Profile file format
+
+Profiles are plain UTF-8 JSON. The `default.json` shipped with the project looks like this:
+
+```json
+{
+  "nombre": "default",
+  "paquete": "com.fluffyfairygames.idleminertycoon",
+  "paqueteBrave": "com.brave.browser",
+  "diasAtraso": 4,
+  "iteraciones": 6,
+  "timeoutSegundos": 15,
+  "segundosVentana": 2,
+  "pasosRecompensa": [
+    { "id": "p1", "etiqueta": "Esperar popup inicial",    "tipo": "esperar", "segundos": 2 },
+    { "id": "p2", "etiqueta": "Tocar boton 'x2 Gratis'", "tipo": "tap",     "fx": 0.304, "fy": 0.678, "reintentos": 1 },
+    { "id": "p3", "etiqueta": "Esperar anuncio/carga",   "tipo": "esperar", "segundos": 6 },
+    { "id": "p4", "etiqueta": "Tocar 'X' de cierre",     "tipo": "tap",     "fx": 0.925, "fy": 0.032, "reintentos": 1 },
+    { "id": "p5", "etiqueta": "Esperar tras cerrar la X","tipo": "esperar", "segundos": 2 },
+    { "id": "p6", "etiqueta": "Tocar 'Recolectar'",      "tipo": "tap",     "fx": 0.499, "fy": 0.732, "reintentos": 1, "esperaEntreReintentos": 2 }
+  ]
+}
+```
+
+Files are stored relative to the project root at `profiles/<nombre>.json`. You can also edit them manually in a text editor while the server is stopped — the server reads them fresh on each API request.
+
+<Note>
+  Profile names are sanitized before saving. The server strips any character that is not alphanumeric, a hyphen, an underscore, or a space (`[^a-zA-Z0-9_\- ]`), then trims leading and trailing whitespace. The sanitized name is used both as the `nombre` field inside the JSON and as the filename: `profiles/<sanitized-name>.json`.
+</Note>
+
+<Warning>
+  Deleting a profile is permanent — there is no undo. The UI does show a browser `confirm()` dialog before proceeding, but once you click **OK** in that dialog, the `.json` file is removed from disk immediately. Make a manual backup copy of the file if you want to keep it as a reference.
+</Warning>

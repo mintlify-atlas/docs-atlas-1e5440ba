@@ -1,0 +1,85 @@
+---
+title: "Requirements for Controlador de Fechas"
+sidebarTitle: "Requirements"
+description: "Everything you need: Windows with PowerShell, ADB in PATH, and an Android device with USB debugging. No Node.js or Python required."
+---
+
+Controlador de Fechas is intentionally lightweight — it runs entirely within PowerShell and communicates with your Android device over ADB. Before you launch the panel for the first time, make sure the items below are in place. Meeting these requirements takes about five minutes on a stock Windows 10 or 11 machine.
+
+## Software requirements
+
+<Steps>
+  <Step title="Windows with PowerShell">
+    PowerShell is pre-installed on Windows 10 and Windows 11. No additional installation is needed. The tool uses `System.Net.HttpListener` (a built-in .NET class) to serve the web panel, so no external web server is required.
+  </Step>
+  <Step title="Android Platform Tools (ADB)">
+    `adb` must be installed and available on the system `PATH`. Download the latest Android Platform Tools from the official page:
+
+    ```
+    https://developer.android.com/tools/releases/platform-tools
+    ```
+
+    Extract the ZIP to a permanent folder (for example `C:\platform-tools`), then add that folder to your system `PATH` so that `adb` can be called from any terminal window.
+  </Step>
+  <Step title="No other runtimes needed">
+    Node.js, Python, Ruby, and similar runtimes are **not** required. The server, the automation logic, and the JSON serializer are all written in pure PowerShell.
+  </Step>
+</Steps>
+
+## Device requirements
+
+<Steps>
+  <Step title="Android phone or emulator">
+    Any physical Android phone or a software emulator (such as Android Studio's AVD) that exposes an ADB interface will work.
+  </Step>
+  <Step title="USB cable">
+    Connect the phone to your Windows machine with a USB data cable (not a charge-only cable).
+  </Step>
+  <Step title="USB debugging enabled">
+    On the device, go to **Settings → About phone** and tap **Build number** seven times to unlock Developer options. Then go to **Settings → Developer options** and enable **USB debugging**.
+  </Step>
+  <Step title="ADB connection authorized">
+    The first time you connect with USB debugging on, Android displays an **"Allow USB debugging?"** dialog on the device screen. Tap **Allow** (optionally check "Always allow from this computer"). The device then shows as `device` in `adb devices` output.
+  </Step>
+</Steps>
+
+## Installing ADB
+
+Download Android Platform Tools from the link above, unzip it, and add the folder to your system PATH. Then verify the installation in any PowerShell or Command Prompt window:
+
+```powershell
+adb version
+```
+
+You should see output similar to:
+
+```
+Android Debug Bridge version 1.0.41
+Version 35.0.2-12147458
+Installed as C:\platform-tools\adb.exe
+```
+
+If `adb` is not found, double-check that the `platform-tools` folder — not a parent folder — is the entry you added to `PATH`, and that you opened a **new** terminal window after making the change.
+
+<Warning>
+  If no authorized device is detected when you start a run, the tool will log an error and abort. Check that the USB cable is firmly seated, that USB debugging is enabled, and that you tapped **Allow** on the "Allow USB debugging?" dialog on the device screen. Restarting the ADB server with `adb kill-server` followed by `adb start-server` can also resolve stale connection states.
+</Warning>
+
+## First-time Windows permission
+
+When `server.ps1` starts for the very first time, Windows may not yet allow PowerShell to open a local HTTP port. If that happens, the console prints:
+
+```
+No se pudo abrir el puerto 8790 directamente (...).
+Intentando registrar el permiso de URL (se pedira una vez confirmacion de administrador)...
+```
+
+A UAC (User Account Control) prompt then appears asking for administrator confirmation to run `netsh http add urlacl`. Accept it once — the permission is persisted by Windows and the prompt will not appear again.
+
+If you dismiss the UAC dialog, or if the automatic registration fails, the console prints the exact manual command to run. Open PowerShell **as Administrator** and execute:
+
+```powershell
+netsh http add urlacl url=http://127.0.0.1:8790/ user=DOMAIN\USERNAME
+```
+
+Replace `DOMAIN` with your Windows domain (or machine name for local accounts) and `USERNAME` with your Windows username. After running that command, launch `iniciar.bat` again normally.

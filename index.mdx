@@ -1,20 +1,49 @@
 ---
-title: "Introduction"
-description: "Welcome to your project"
+title: "Controlador de Fechas: Android Reward Test Automation"
+sidebarTitle: "Home"
+description: "Automate time-gated Android game reward testing via ADB with a local browser panel — no Node.js, Python, or coding required."
 ---
 
-Write a short description of your product here. What it does, who it's for, and what they can accomplish with it.
+Controlador de Fechas is a local automation tool for QA-testing time-gated rewards in Android games. It drives your phone through a precise sequence — rolling the device clock back, opening the game, switching to the browser, restoring the real date, and executing a configurable tap sequence to claim the reward — all without you touching the phone. The entire control surface lives in a browser tab served by a pure-PowerShell HTTP server that ships zero external dependencies.
 
-<Tip>
-  Ready to make this your own? Start by editing this page. Update your `docs.json` file to customize your site. Then fill out the [Quickstart](/quickstart) page.
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Requirements" icon="list-check" href="/requirements">
+    What you need before you start: ADB, Windows, and USB debugging
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Launch the panel and run your first automated test in minutes
+  </Card>
+  <Card title="Profiles" icon="floppy-disk" href="/profiles">
+    Create and manage per-game configuration profiles
+  </Card>
+  <Card title="Reward Sequence" icon="hand-pointer" href="/reward-sequence">
+    Build tap-and-wait sequences to automatically claim in-game rewards
+  </Card>
+  <Card title="API Endpoints" icon="code" href="/api-endpoints">
+    REST endpoints exposed by the local PowerShell server
+  </Card>
+  <Card title="CLI Script" icon="terminal" href="/script-reference">
+    Run the original script.ps1 directly from the command line
+  </Card>
+</CardGroup>
 
-<Card title="Quickstart" icon="rocket" href="/quickstart">
-  This card links to the quickstart page in your project.
-</Card>
-<Card title="Components" icon="puzzle-piece" href="https://mintlify.com/docs/components">
-  Add cards, callouts, steps, tabs, and more to design and structure your pages.
-</Card>
-<Card title="Settings" icon="gear" href="https://mintlify.com/docs/organize/settings">
-  Set your site name, branding, and navigation in the `docs.json` file.
-</Card>
+## How it works
+
+<Steps>
+  <Step title="Connect your Android device">
+    Plug your phone in via USB, enable USB debugging, and authorize the ADB connection when prompted on the device screen.
+  </Step>
+  <Step title="Start the server">
+    Double-click `iniciar.bat`. A PowerShell window opens and your browser navigates automatically to `http://127.0.0.1:8790`.
+  </Step>
+  <Step title="Configure a profile">
+    Enter your game's package name, set how many days to roll back, and build the tap sequence that claims the reward.
+  </Step>
+  <Step title="Run the test">
+    Click **Iniciar prueba**. The panel shows live progress, iteration count, and a streaming log. Click **Detener** at any time — the tool always restores the real device clock before it stops.
+  </Step>
+</Steps>
+
+<Note>
+  The server only listens on `127.0.0.1` and requires no internet connection. All HTML, CSS, and JavaScript are served from the local `public/` directory.
+</Note>

@@ -1,0 +1,68 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Controlador de Fechas",
+  "projectDescription": "A Windows/PowerShell local web panel that automates Android game reward testing by manipulating device dates via ADB, with a browser-based UI for configuring profiles and reward-step sequences.",
+  "theme": "aspen",
+  "primaryColor": "#2563EB",
+  "lightColor": "#DBEAFE",
+  "darkColor": "#1E3A5F",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "requirements",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Using the Panel",
+        "pages": [
+          "panel-overview",
+          "profiles",
+          "devices",
+          "reward-sequence"
+        ]
+      },
+      {
+        "group": "Configuration Reference",
+        "pages": [
+          "parameters",
+          "profile-schema",
+          "api-endpoints"
+        ]
+      },
+      {
+        "group": "CLI Script",
+        "pages": [
+          "script-reference",
+          "troubleshooting"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Browser-based control panel served by a pure-PowerShell HTTP server (no Node.js or Python required)",
+    "Automates the full reward-testing cycle: roll back device date, open game, switch to browser, restore real date, reopen game",
+    "Configurable reward step sequences (tap + wait) stored as JSON profiles per game",
+    "Resolution-independent tap coordinates expressed as screen fractions (0.0–1.0)",
+    "Multi-device ADB support with automatic device detection and authorization check",
+    "Live execution log with per-run file persistence under logs/",
+    "Safe-stop mechanism always restores real device time even on errors",
+    "Reusable profiles: create, duplicate, rename, delete from the UI without editing code"
+  ],
+  "publicApiSurface": [
+    "GET /api/perfiles — list saved profile names",
+    "GET /api/perfiles/:nombre — load a profile by name",
+    "POST /api/perfiles/:nombre — create or update a profile",
+    "DELETE /api/perfiles/:nombre — delete a profile",
+    "GET /api/dispositivos — list connected ADB devices",
+    "GET /api/estado?desde=N — poll run state and streaming log lines",
+    "POST /api/iniciar — start a test run with a profile",
+    "POST /api/detener — request a graceful stop",
+    "GET /api/log/descargar — download the current run log file",
+    "script.ps1 -Paquete -PaqueteBrave -DiasAtraso -Iteraciones -TimeoutSegundos -SegundosVentana -LogPath",
+    "server.ps1 -Puerto"
+  ]
+}

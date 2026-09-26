@@ -1,0 +1,115 @@
+---
+title: "Building Reward Step Sequences"
+sidebarTitle: "Reward Sequence"
+description: How to configure tap-and-wait step sequences that run after the game reopens, using screen-fraction coordinates that work at any display resolution.
+---
+
+The reward sequence is the ordered list of steps that Controlador de Fechas executes after the game is relaunched with the real device clock restored. This is the phase where the automation actually claims the in-game reward — tapping buttons, dismissing ads, and waiting for animations. Each step is stored in the `pasosRecompensa` array of the active profile and is fully editable from the **Secuencia de recompensa** card in the panel, without touching any code. Coordinates are expressed as fractions of the screen dimensions rather than absolute pixels, so the same sequence works correctly on any phone regardless of display resolution.
+
+## Step types
+
+The sequence supports two step types:
+
+<CardGroup cols={2}>
+  <Card title="esperar (wait)">
+    Pauses execution for a fixed number of seconds. Use this to wait for UI animations to finish, for an ad to load, or for a popup to appear before the next tap. The only required parameter is `segundos` (an integer number of seconds).
+  </Card>
+  <Card title="tap">
+    Sends a single tap to a point on the screen expressed as `(fx, fy)` — fractions of screen width and height respectively, where `0.0` is the left/top edge and `1.0` is the right/bottom edge. An optional `reintentos` field repeats the tap up to that many times, with `esperaEntreReintentos` seconds between each attempt.
+  </Card>
+</CardGroup>
+
+## Fraction coordinates explained
+
+When a `tap` step runs, the server calls `adb shell wm size` to read the physical screen resolution. It checks for an override size first, then falls back to the physical size. The pixel coordinates sent to ADB are computed as:
+
+```text
+x = round(screenWidth  × fx)
+y = round(screenHeight × fy)
+```
+
+For example, a step with `fx = 0.499` and `fy = 0.732` on a 1080 × 2400 device taps pixel `(539, 1757)`. On a 1440 × 3200 device the same fractions resolve to `(719, 2342)` — hitting the same relative position without any modification to the profile.
+
+If the `wm size` command fails or returns an unrecognized format, the server logs a warning and assumes a **1080 × 2400** fallback resolution to keep the run going.
+
+## Default sequence
+
+The `default.json` profile ships with six calibrated steps for *Idle Miner Tycoon* (`com.fluffyfairygames.idleminertycoon`):
+
+| # | Label | Type | Parameters |
+|---|---|---|---|
+| 1 | Esperar popup inicial | `esperar` | 2 s |
+| 2 | Tocar botón 'x2 Gratis' | `tap` | fx=0.304, fy=0.678, reintentos=1 |
+| 3 | Esperar anuncio/carga | `esperar` | 6 s |
+| 4 | Tocar 'X' de cierre | `tap` | fx=0.925, fy=0.032, reintentos=1 |
+| 5 | Esperar tras cerrar la X | `esperar` | 2 s |
+| 6 | Tocar 'Recolectar' | `tap` | fx=0.499, fy=0.732, reintentos=1, esperaEntreReintentos=2 |
+
+The sequence waits for the initial popup, taps the double-reward button, waits for the ad to load and play, closes the ad with the X, waits for the post-ad transition, then collects the reward.
+
+## Editing steps
+
+Each row in the **Secuencia de recompensa** card exposes the following controls:
+
+<Tabs>
+  <Tab title="Common controls">
+    Every step row — regardless of type — shows:
+    - A **step number** badge on the left.
+    - A **label** text field (`etiqueta`) for a human-readable description shown in the execution log and in the **Paso actual** KPI.
+    - A **type dropdown** to switch between *Esperar* and *Tocar (tap)*. Switching type preserves the label and resets the type-specific fields.
+    - **↑ / ↓** reorder buttons to move the step up or down in the sequence.
+    - A **✕** delete button to remove the step entirely.
+  </Tab>
+  <Tab title="Esperar fields">
+    A single numeric input for the **seconds** to wait (minimum 0, integer steps). The field is labeled `seg` to the right.
+  </Tab>
+  <Tab title="Tap fields">
+    Three numeric inputs:
+    - **x** — fraction of screen width (`fx`), range 0.000–1.000, step 0.001.
+    - **y** — fraction of screen height (`fy`), range 0.000–1.000, step 0.001.
+    - **reintentos** — integer number of tap attempts (minimum 1). Set above 1 if the button may not be present on the first tap.
+  </Tab>
+</Tabs>
+
+To add a new step, click **+ Agregar paso manual** below the step list. A new *Esperar* step is appended with a 1-second duration; change the type and values as needed.
+
+## Finding coordinates
+
+To calibrate tap coordinates for a new game:
+
+<Steps>
+  <Step title="Capture a screenshot via ADB">
+    Run the following commands in a terminal to take a screenshot on the device and pull it to your PC:
+
+    ```bash
+    adb shell screencap -p /sdcard/screenshot.png
+    adb pull /sdcard/screenshot.png
+    ```
+
+    If you have multiple devices connected, prefix both commands with `-s <deviceId>`.
+  </Step>
+  <Step title="Read the pixel coordinates">
+    Open `screenshot.png` in an image editor (Paint, GIMP, Photoshop, etc.) and hover over the button you want to tap. Read the pixel coordinates `(px, py)` from the cursor position indicator.
+  </Step>
+  <Step title="Convert to fractions">
+    Divide each coordinate by the screen dimensions to get the fractions:
+
+    ```text
+    fx = px / screenWidth
+    fy = py / screenHeight
+    ```
+
+    For example, a button at pixel (329, 1627) on a 1080 × 2400 screen gives `fx ≈ 0.305`, `fy ≈ 0.678`.
+  </Step>
+  <Step title="Enter the fractions in the panel">
+    Type the computed `fx` and `fy` values into the **x** and **y** fields of the corresponding tap step in the panel. The default profile's calibrated values are a useful starting reference when the reward UI layout is similar.
+  </Step>
+</Steps>
+
+<Tip>
+  If a button appears with variable delay — for example after an ad finishes loading — increase the `reintentos` value on that tap step. Each retry taps the same coordinates again after `esperaEntreReintentos` seconds, giving the button time to appear before giving up.
+</Tip>
+
+<Note>
+  Editing step fields in the panel updates the in-memory profile immediately, but the changes are **not persisted to disk** until you click **Guardar** in the sidebar. If you close or reload the page without saving, your step edits will be lost. Get into the habit of clicking Guardar after calibrating coordinates.
+</Note>

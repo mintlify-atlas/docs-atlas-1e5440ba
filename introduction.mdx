@@ -1,0 +1,65 @@
+---
+title: "Controlador de Fechas: Automate Android Reward Testing"
+sidebarTitle: "Introduction"
+description: "A pure-PowerShell tool that drives Android game reward flows over ADB — no Node.js or Python required. Control everything from a local browser panel."
+---
+
+Controlador de Fechas is a Windows-native automation tool that lets you test time-gated rewards in Android games without manually adjusting your phone's clock. It exposes a local browser-based control panel (served entirely by PowerShell — no Node.js or Python needed) and a standalone CLI script (`script.ps1`) that you can run directly from the terminal. Both entry points drive the same ADB automation cycle: roll the device clock back, trigger the reward, then restore the real date — all without touching the game's files or APK.
+
+## How it works
+
+The tool runs a repeatable, multi-step cycle for as many iterations as you configure. Each iteration follows this exact sequence:
+
+<Steps>
+  <Step title="Roll back the device clock">
+    ADB disables automatic time sync (`auto_time 0`) and sets the device date back by the configured number of days using a low-level `service call alarm` command.
+  </Step>
+  <Step title="Open the game">
+    The game package is launched via `adb shell monkey`. The tool actively polls `dumpsys window` until the game reaches the foreground — or until the configurable timeout fires.
+  </Step>
+  <Step title="Switch to the browser">
+    The configured browser (default: Brave, `com.brave.browser`) is launched, pushing the game to the background. This is the standard trick that causes many idle games to recalculate offline earnings based on the manipulated timestamp.
+  </Step>
+  <Step title="Restore the real date">
+    The device clock is set back to the current real time, and automatic sync is re-enabled. A brief wait lets the system settle before the next command.
+  </Step>
+  <Step title="Reopen the game">
+    The game is brought back to the foreground with the real date now active, which typically triggers the time-gated reward popup.
+  </Step>
+  <Step title="Execute the reward sequence">
+    The configurable tap/wait sequence runs: wait for the popup, tap the reward button, wait for an ad or loading screen, close it, wait again, then tap "Collect". All coordinates are expressed as screen fractions so they work on any device resolution.
+  </Step>
+</Steps>
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Pure-PowerShell server" icon="server">
+    The web panel is served by `System.Net.HttpListener` inside PowerShell itself — no Node.js, Python, or any other runtime is needed on the host machine.
+  </Card>
+  <Card title="Profile system" icon="bookmark">
+    Every game gets its own JSON profile stored in `profiles/`. Profiles store the package name, timing parameters, iteration count, and the full reward sequence — switch games without touching any code.
+  </Card>
+  <Card title="Configurable tap/wait sequences" icon="list-check">
+    The reward sequence is a user-editable list of steps: wait N seconds, or tap at a fractional coordinate. Steps can be reordered, edited, or deleted directly from the browser panel.
+  </Card>
+  <Card title="Resolution-independent coordinates" icon="maximize">
+    Tap positions are stored as fractions of the screen (0.0–1.0). The tool queries `adb shell wm size` at runtime and converts them to absolute pixels, so the same profile works across different device resolutions.
+  </Card>
+  <Card title="Multi-device ADB support" icon="mobile">
+    The panel detects all connected ADB devices and lets you choose which one to target. Unauthorized devices are flagged with a clear warning before a run starts.
+  </Card>
+  <Card title="Live log and progress bar" icon="chart-line">
+    The browser panel streams real-time log lines and shows a per-iteration progress bar during a run — the same diagnostics that previously only appeared in the PowerShell console.
+  </Card>
+  <Card title="Safe stop" icon="circle-stop">
+    Clicking Detener (Stop) sets a cancellation flag. Before halting, the tool always attempts to restore the real device clock, matching the safety net already present in `script.ps1` for unhandled errors.
+  </Card>
+  <Card title="Per-run log files" icon="file-lines">
+    Each run writes its own timestamped log to `logs/corrida_<profile>_<timestamp>.log`. A download button in the panel lets you grab the full log for any active run.
+  </Card>
+</CardGroup>
+
+<Note>
+  The server only ever binds to `127.0.0.1` — it is not reachable from any other machine on your network. No internet connection is required; all HTML, CSS, and JavaScript are served from the local `public/` directory.
+</Note>

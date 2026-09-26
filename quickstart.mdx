@@ -1,47 +1,111 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with Controlador de Fechas"
+sidebarTitle: "Quickstart"
+description: "Step-by-step guide to launch the panel, connect a device, configure a profile, and run your first automated Android reward test in about five minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+This page walks you through everything from downloading the project to watching your first automated reward cycle complete on a real Android device. If your machine already has ADB installed and a device connected, you should be running your first test in about five minutes.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Clone or download the project">
+    Clone the repository with Git:
 
     ```bash
-    npm install your-package
+    git clone https://github.com/LucioHdz/controlador-fechas-adroid.git
     ```
+
+    Or, if you prefer not to use Git, open the repository page in your browser, click **Code → Download ZIP**, and extract the archive to any folder on your machine. Either way, make sure the extracted folder contains `server.ps1`, `iniciar.bat`, and the `public/` directory before continuing.
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
 
-    ```bash
-    your-cli init
+  <Step title="Connect your device">
+    Plug your Android phone into your Windows machine with a USB data cable, then verify that ADB can see it:
+
+    ```powershell
+    adb devices
     ```
+
+    Expected output (the serial number will differ on your device):
+
+    ```
+    List of devices attached
+    R58M123ABCD     device
+    ```
+
+    The word `device` at the end of the line confirms the connection is authorized. If it says `unauthorized` instead, unlock your phone and tap **Allow** on the "Allow USB debugging?" dialog.
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
 
-    ```bash
-    your-cli start
+  <Step title="Start the server">
+    From the project folder, double-click **`iniciar.bat`** — or run the following in a PowerShell window:
+
+    ```powershell
+    powershell -NoProfile -ExecutionPolicy Bypass -File server.ps1
     ```
+
+    The console prints the startup banner in green:
+
+    ```
+    ============================================================
+     Controlador de Fechas - Panel de pruebas
+     Abre en tu navegador: http://127.0.0.1:8790/
+     Presiona Ctrl+C en esta ventana para cerrar el servidor.
+    ============================================================
+    ```
+
+    Keep this PowerShell window open for the entire session — closing it shuts down the server.
+  </Step>
+
+  <Step title="Open the panel">
+    The server automatically opens `http://127.0.0.1:8790` in your default browser. If the tab does not open on its own, navigate to that address manually. The panel loads its HTML, CSS, and JavaScript from the local `public/` folder — no internet connection is needed.
+  </Step>
+
+  <Step title="Configure a profile">
+    In the panel, locate the **Parámetros generales** (General parameters) section and fill in the fields for your game:
+
+    | Field | Example value | Description |
+    |---|---|---|
+    | Paquete del juego | `com.fluffyfairygames.idleminertycoon` | Android package name of the game |
+    | Paquete del navegador | `com.brave.browser` | Package name of the browser to switch to |
+    | Días de atraso | `4` | How many days to roll the clock back |
+    | Iteraciones | `6` | Number of full reward cycles to run |
+    | Timeout (s) | `15` | Max seconds to wait for an app to reach the foreground |
+
+    The device selector at the top of the panel auto-populates from `adb devices`. Select your connected device from the dropdown.
+  </Step>
+
+  <Step title="Build the reward sequence">
+    Scroll to the **Secuencia de recompensa** (Reward sequence) section. Add steps using the **+ Esperar** and **+ Tocar** buttons. The default profile ships with this sequence, which matches the idle-miner reward flow that the original `script.ps1` was calibrated for:
+
+    | # | Type | Value | Label |
+    |---|---|---|---|
+    | 1 | Wait | 2 s | Esperar popup inicial |
+    | 2 | Tap | (0.304, 0.678) | Tocar botón 'x2 Gratis' |
+    | 3 | Wait | 6 s | Esperar anuncio/carga |
+    | 4 | Tap | (0.925, 0.032) | Tocar 'X' de cierre |
+    | 5 | Wait | 2 s | Esperar tras cerrar la X |
+    | 6 | Tap | (0.499, 0.732) | Tocar 'Recolectar' |
+
+    Coordinates are screen fractions (0.0–1.0), so they scale automatically to your device's actual pixel resolution — no re-calibration needed when switching devices.
+  </Step>
+
+  <Step title="Save the profile">
+    At the top of the left sidebar, type a name for this profile (for example `idle-miner-x2`) and click **Guardar como…** (Save as). The profile is written to `profiles/idle-miner-x2.json` and immediately appears in the profile list. You can create one profile per game and switch between them without restarting the server.
+  </Step>
+
+  <Step title="Run the test">
+    Click **Iniciar prueba** (Start test). The panel switches to the live run view:
+
+    - A **progress bar** advances with each completed iteration.
+    - The **Registro de ejecución** (Run log) streams timestamped lines in real time — the same diagnostics that previously only appeared in the PowerShell console.
+    - The current step label (e.g. *"Atrasando fecha"*, *"Abriendo juego"*, *"Ejecutando secuencia de recompensa"*) updates as the cycle progresses.
+
+    Watch your phone: the screen will cycle through date changes, app launches, and the automated taps according to your sequence.
   </Step>
 </Steps>
 
 <Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
-
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+  Clicking **Detener** at any point during a run sets a safe-stop flag. The tool finishes the tap or wait it is currently executing, then immediately restores the real device clock before halting — your phone will never be left with a manipulated date.
 </Tip>
+
+<Note>
+  Every run writes its own log file to the `logs/` folder, named `corrida_<profile>_<timestamp>.log` (for example `corrida_idle-miner-x2_20240615_143022.log`). A **Descargar log** (Download log) button in the panel lets you save the file from the current run at any time, including while the run is still in progress.
+</Note>

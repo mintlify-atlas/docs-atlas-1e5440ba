@@ -1,0 +1,228 @@
+---
+title: "Troubleshooting Controlador de Fechas"
+sidebarTitle: "Troubleshooting"
+description: "Fixes for common issues: ADB not found, device not authorized, port permission errors, app not reaching foreground, and date not changing on Android."
+---
+
+The most common issues fall into three categories — ADB setup, Windows port permissions, and device-side problems — and the execution log is always the first place to look. Both entry points write timestamped `[INFO]` / `[WARN]` / `[ERROR]` lines: `script.ps1` writes to `script.log` (or the path you set with `-LogPath`), while `server.ps1` writes per-run files to the `logs/` folder and streams them live in the browser panel.
+
+<Accordion title="`adb` not found in PATH">
+
+**Symptom:** The console or log prints:
+
+```
+No se encontro 'adb' en el PATH. Instala Android Platform Tools y agregalo al PATH.
+```
+
+**Fix:**
+
+<Steps>
+  <Step title="Download Android Platform Tools">
+    Go to [developer.android.com/tools/releases/platform-tools](https://developer.android.com/tools/releases/platform-tools) and download the ZIP for Windows.
+  </Step>
+  <Step title="Extract the archive">
+    Extract the ZIP to a permanent location, for example `C:\platform-tools`.
+  </Step>
+  <Step title="Add the folder to the system PATH">
+    Open **Settings → System → About → Advanced system settings → Environment Variables**. Under **System variables**, select `Path` and click **Edit**. Add a new entry pointing to the folder you extracted (e.g. `C:\platform-tools`).
+  </Step>
+  <Step title="Verify the installation">
+    Open a **new** terminal (the old one won't pick up the PATH change) and run:
+    ```powershell
+    adb version
+    ```
+    You should see the ADB version string printed without errors.
+  </Step>
+</Steps>
+
+</Accordion>
+
+<Accordion title="No authorized device detected">
+
+**Symptom:** The web panel shows **"Sin dispositivos detectados"**, or the device appears in the list with the label **(no autorizado)**.
+
+**Fix:**
+
+<Steps>
+  <Step title="Check the USB cable">
+    Try a different cable or USB port. Data-only cables (charge-only) won't carry ADB traffic.
+  </Step>
+  <Step title="Enable USB debugging">
+    On the phone, go to **Settings → About phone** and tap **Build number** seven times to unlock Developer options. Then go to **Settings → Developer options → USB debugging** and turn it **ON**.
+  </Step>
+  <Step title="Authorize the computer">
+    Disconnect and reconnect the USB cable. A dialog saying **"Allow USB debugging?"** should appear on the phone screen. Tap **Allow** (and optionally check **Always allow from this computer**).
+  </Step>
+  <Step title="Refresh the device list">
+    In the web panel, click the **↻** refresh button next to the device selector. The device should now appear as authorized.
+  </Step>
+</Steps>
+
+</Accordion>
+
+<Accordion title="Server won't start — port permission error">
+
+**Symptom:** The PowerShell console prints:
+
+```
+No se pudo abrir el puerto 8790
+```
+
+**Cause:** `System.Net.HttpListener` on Windows requires an explicit URL ACL reservation before a non-administrator process can bind to a port. `server.ps1` attempts this automatically by invoking `netsh` with elevated privileges via `Start-Process … -Verb RunAs`.
+
+**Fix:**
+
+Accept the **UAC prompt** that pops up automatically. This registers the permission once and you won't be asked again.
+
+If the automatic UAC prompt is blocked by policy or you dismissed it, run this command manually in a PowerShell window **opened as Administrator**, replacing `DOMAIN` and `USERNAME` with your actual Windows credentials:
+
+```powershell
+netsh http add urlacl url=http://127.0.0.1:8790/ user=DOMAIN\USERNAME
+```
+
+Then double-click `iniciar.bat` again. If port 8790 is in use by another application, start the server on a different port:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File server.ps1 -Puerto 9000
+```
+
+</Accordion>
+
+<Accordion title="App doesn't reach foreground (WARN in log)">
+
+**Symptom:** The log contains a line like:
+
+```
+[WARN] Timeout esperando a que com.example.game pasara a primer plano.
+```
+
+**Cause:** The script polls `adb shell dumpsys window` every 500 ms looking for the package name in `mCurrentFocus`. If the game is slow to launch (cold start, large asset load, or a slow device), it may not appear within the `TimeoutSegundos` window.
+
+**Fix:**
+
+<Steps>
+  <Step title="Increase the timeout">
+    In the web panel, raise **timeoutSegundos** on the profile to 20–30 seconds. On the CLI, pass `-TimeoutSegundos 25`.
+  </Step>
+  <Step title="Check for a splash screen or system dialog">
+    Some games show an OS-level dialog (permissions, Play Protect warning) on first launch after a date change. These dialogs prevent the game from reaching the foreground. Dismiss them manually once; subsequent runs are usually clean.
+  </Step>
+</Steps>
+
+<Note>
+  A foreground timeout is a warning, not a fatal error. The script continues and attempts the reward flow regardless. Monitor the log to see whether the taps are landing correctly despite the timeout.
+</Note>
+
+</Accordion>
+
+<Accordion title="Device date doesn't change / WARN about NTP policy">
+
+**Symptom:** The log shows:
+
+```
+[WARN] La fecha del dispositivo no coincide con la esperada (diferencia de X s). Puede haber una politica que fuerce NTP.
+```
+
+**Cause:** The script changes the clock via `adb shell service call alarm 2 i64 <epochMs>`, which requires auto-sync to be disabled first (`settings put global auto_time 0`). On some devices the OS — or a carrier/MDM policy — immediately re-syncs the clock with NTP after the change.
+
+**Fix:**
+
+<Steps>
+  <Step title="Disable automatic date & time on the device">
+    Go to **Settings → General management → Date and time** (exact path varies by manufacturer) and turn **Automatic date and time** **OFF**.
+  </Step>
+  <Step title="Verify the change persisted">
+    In a terminal, run:
+    ```powershell
+    adb shell date
+    ```
+    Then manually set the clock back several days and check `adb shell date` again a few seconds later. If the clock snaps back, the device is enforcing NTP.
+  </Step>
+  <Step title="Check for MDM management">
+    If the auto-sync toggle is grayed out, your device is managed by a Mobile Device Management (MDM) profile. In that case the date-change approach cannot be used with this device.
+  </Step>
+</Steps>
+
+</Accordion>
+
+<Accordion title="Reward taps don't hit the right buttons">
+
+**Symptom:** The automation cycle completes without errors, but the reward is never collected — the taps appear to land in the wrong place.
+
+**Cause:** In `script.ps1` the tap coordinates are hardcoded fractions calibrated on a **610 × 1356** reference capture of one specific game version. If the game's UI layout changes, or if a different game is being tested, the fractions will be off. In the web panel the profile steps are fully editable, but the default fractions are the same starting point.
+
+**Fix:**
+
+<Steps>
+  <Step title="Take a screenshot of each reward screen">
+    ```powershell
+    adb shell screencap -p /sdcard/screen.png
+    adb pull /sdcard/screen.png
+    ```
+    Repeat for each screen in the reward flow (popup, ad/loading screen, X button visible, Recolectar button visible).
+  </Step>
+  <Step title="Measure the button pixel positions">
+    Open each screenshot in an image editor (Paint, GIMP, Photoshop). Hover over the center of the target button and note the pixel coordinates `(px, py)`.
+  </Step>
+  <Step title="Convert to fractions">
+    Divide by the image dimensions:
+    ```
+    fx = px / image_width
+    fy = py / image_height
+    ```
+  </Step>
+  <Step title="Update the profile steps">
+    In the web panel, edit the **FraccionX** and **FraccionY** values for each tap step and click **Guardar**. For `script.ps1`, update the `Invoke-TapFraccion` calls inside `Invoke-RewardFlow`.
+  </Step>
+</Steps>
+
+</Accordion>
+
+<Accordion title="Run won't stop / UI appears frozen">
+
+**Symptom:** The **Detener** button is disabled or grayed out, or clicking it seems to have no effect for a long time.
+
+**Cause:** The stop mechanism is intentionally asynchronous. Clicking **Detener** sets a `StopRequested` flag in the shared state; the automation runspace checks this flag at each step boundary. The current step (for example a long `Start-Sleep` for the ad timeout) must finish before the flag is acted on.
+
+**Fix:**
+
+- **Wait a moment.** If the current step is an `EsperaAnuncioSegundos` wait (default 6 s), the run will stop within that many seconds.
+- **Hard stop:** Close the PowerShell window that runs `server.ps1`, or press **Ctrl+C** inside it. The `finally` block in the automation runspace will still attempt to call `Restore-RealTime` to reset the device clock before the process exits.
+
+<Warning>
+  Killing the PowerShell process via Task Manager bypasses the `finally` block entirely and may leave the device with the rolled-back date active. Always prefer Ctrl+C or the **Detener** button when possible.
+</Warning>
+
+</Accordion>
+
+<Accordion title="Log not saving to disk">
+
+**Symptom:** A run completes successfully but no file appears in the `logs/` folder.
+
+**Fix:**
+
+<Steps>
+  <Step title="Check that the logs directory exists">
+    `server.ps1` creates `logs/` automatically on startup. If you moved or renamed the folder after the server started, create it manually:
+    ```powershell
+    New-Item -ItemType Directory -Path ".\logs"
+    ```
+  </Step>
+  <Step title="Check write permissions">
+    Make sure the user running PowerShell has write access to the project directory. If the project folder is under `C:\Program Files\` or another protected path, move it to a user-writable location such as `C:\Users\<you>\controlador-fechas-adroid\`.
+  </Step>
+  <Step title="For script.ps1, set an explicit log path">
+    If the default `script.log` (next to the script file) is not being written, specify a path you know is writable:
+    ```powershell
+    powershell -ExecutionPolicy Bypass -File script.ps1 `
+      -Paquete "com.example.game" `
+      -LogPath "$env:USERPROFILE\Desktop\run.log"
+    ```
+  </Step>
+</Steps>
+
+</Accordion>
+
+<Tip>
+  If you run into an issue not covered here, open a bug report on the GitHub repository: [github.com/LucioHdz/controlador-fechas-adroid](https://github.com/LucioHdz/controlador-fechas-adroid). Include the relevant lines from the execution log (the `[WARN]` and `[ERROR]` entries) and the PowerShell version (`$PSVersionTable`).
+</Tip>

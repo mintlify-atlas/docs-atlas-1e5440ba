@@ -1,0 +1,156 @@
+---
+title: "script.ps1 CLI Reference"
+sidebarTitle: "script.ps1"
+description: "PowerShell CLI reference for script.ps1 — all parameters, defaults, and usage examples for running reward test automation from the command line."
+---
+
+`script.ps1` is the original standalone automation script preserved as a command-line reference and fallback. It takes the same parameters as the web panel but runs as a single PowerShell invocation without a web UI. No server, no browser, and no profile files are involved — all configuration is passed directly on the command line or falls back to the baked-in defaults.
+
+## Usage
+
+Invoke `script.ps1` directly from a PowerShell terminal or from any `.bat` file. The `-ExecutionPolicy Bypass` flag is required because the script is not signed.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File script.ps1 `
+  [-Paquete <string>] `
+  [-PaqueteBrave <string>] `
+  [-DiasAtraso <int>] `
+  [-Iteraciones <int>] `
+  [-TimeoutSegundos <int>] `
+  [-SegundosVentana <int>] `
+  [-EsperaPopupInicialSegundos <int>] `
+  [-EsperaAnuncioSegundos <int>] `
+  [-EsperaTrasCerrarXSegundos <int>] `
+  [-IntentosRecolectar <int>] `
+  [-EsperaEntreIntentosRecolectar <int>] `
+  [-LogPath <string>]
+```
+
+## Parameters
+
+All parameters are optional. The script ships with conservative defaults that work as a starting point; tune them for each game you test.
+
+<ParamField query="Paquete" type="string" default="com.package.example">
+  Android package name of the game to test. This is the only parameter you almost always need to set explicitly. Find the package name on the Google Play URL or with `adb shell pm list packages`.
+</ParamField>
+
+<ParamField query="PaqueteBrave" type="string" default="com.brave.browser">
+  Package name of the browser to switch to between date change and restore. Switching to a foreground browser triggers the game to go to the background, which is required for the idle-reward timer trick to register.
+</ParamField>
+
+<ParamField query="DiasAtraso" type="integer" default="30">
+  Number of days to roll back the device clock before opening the game. Larger values unlock more accumulated idle rewards, but some games cap the claim window.
+</ParamField>
+
+<ParamField query="Iteraciones" type="integer" default="10">
+  Number of full automation cycles to run end-to-end. Each cycle rolls back the clock, opens the game, switches to Brave, restores the clock, reopens the game, and executes the reward flow.
+</ParamField>
+
+<ParamField query="TimeoutSegundos" type="integer" default="15">
+  Maximum seconds of active polling to wait for an app to reach the foreground after launch. If the app has not appeared in `mCurrentFocus` within this window, a `WARN` is logged and the script continues.
+</ParamField>
+
+<ParamField query="SegundosVentana" type="integer" default="2">
+  Short pause after the reward flow at the end of each cycle. Gives the game's reward animation time to settle before the next iteration begins.
+</ParamField>
+
+<ParamField query="EsperaPopupInicialSegundos" type="integer" default="2">
+  Wait time in seconds for the initial reward popup ("Ganancia de Dinero Inactivo") to appear after the game opens with the real date restored.
+</ParamField>
+
+<ParamField query="EsperaAnuncioSegundos" type="integer" default="6">
+  Estimated duration of the ad or game loading screen before the close **X** button appears (RECOMPENSA P3 in calibration images). Increase this if the ad is not finishing before the X tap fires.
+</ParamField>
+
+<ParamField query="EsperaTrasCerrarXSegundos" type="integer" default="2">
+  Seconds to wait after tapping the X close button before the **Recolectar** button appears. The game transition here can vary; bump this value if the collect tap misses.
+</ParamField>
+
+<ParamField query="IntentosRecolectar" type="integer" default="1">
+  How many times to tap the **Recolectar** (collect) button. The coordinate is safe to tap repeatedly — if the button has not yet appeared, the tap lands on the game background and does nothing.
+</ParamField>
+
+<ParamField query="EsperaEntreIntentosRecolectar" type="integer" default="2">
+  Seconds between each Recolectar tap retry when `IntentosRecolectar` is greater than 1.
+</ParamField>
+
+<ParamField query="LogPath" type="string" default="script.log (script directory)">
+  Path to the output log file. Defaults to `script.log` inside the same directory as `script.ps1`. Every log line is stamped with a timestamp and a level tag (`INFO`, `WARN`, or `ERROR`).
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```powershell Minimal run
+# Set only the package — all other params use defaults
+powershell -ExecutionPolicy Bypass -File script.ps1 `
+  -Paquete "com.fluffyfairygames.idleminertycoon"
+```
+
+```powershell Custom days and iterations
+# Roll back 4 days, run only 6 cycles
+powershell -ExecutionPolicy Bypass -File script.ps1 `
+  -Paquete "com.fluffyfairygames.idleminertycoon" `
+  -DiasAtraso 4 `
+  -Iteraciones 6
+```
+
+```powershell Custom log path
+# Write the log to a specific folder
+powershell -ExecutionPolicy Bypass -File script.ps1 `
+  -Paquete "com.fluffyfairygames.idleminertycoon" `
+  -DiasAtraso 4 `
+  -Iteraciones 6 `
+  -LogPath "C:\Logs\run.log"
+```
+
+</CodeGroup>
+
+## Hardcoded reward coordinates
+
+Unlike the web panel (where each tap step is fully editable in the browser), `script.ps1` has the reward tap coordinates hardcoded inside `Invoke-RewardFlow`. The four calibration points map to the four screens of the "Ganancia de Dinero Inactivo x2" flow (RECOMPENSA P1–P4):
+
+| Label | FraccionX | FraccionY |
+|---|---|---|
+| `x2 Gratis` button (P1) | 0.304 | 0.678 |
+| `X` close button (P3) | 0.925 | 0.032 |
+| `Recolectar` button (P4) | 0.499 | 0.732 |
+
+These fractions were calibrated on a **610 × 1356** reference capture. At runtime, `Get-ScreenSize` queries `adb shell wm size` (preferring the Override size, then Physical size) and scales each fraction to the actual pixel dimensions of the connected device, so the same values work on any screen resolution.
+
+## Automation cycle
+
+Each iteration of the main loop executes these five steps in order:
+
+1. **Roll back the date** — calls `Set-DeviceTime` with `(Get-Date).AddDays(-$DiasAtraso)`, disabling Android auto-sync (`auto_time 0`) before applying the change via `service call alarm`.
+2. **Open the game** — launches the game with `adb shell monkey … android.intent.category.LAUNCHER` and polls `dumpsys window` until it reaches the foreground or the timeout fires.
+3. **Open Brave** — same launch-and-wait flow for `$PaqueteBrave`, pushing the game to the background.
+4. **Restore the real date** — calls `Restore-RealTime`, which sets the clock back to `Get-Date` and re-enables auto-sync (`auto_time 1`).
+5. **Reopen the game and run the reward flow** — reopens the game with the corrected date so the server thinks idle time has passed, then `Invoke-RewardFlow` taps through all four reward screens.
+
+## Safety net
+
+The entire five-step loop runs inside a `try/catch` block. If any unhandled error is thrown at any point in the cycle, the `catch` block:
+
+1. Logs the error at `ERROR` level.
+2. Calls `Restore-RealTime` in a nested `try/catch` to set the device clock back to the real current time.
+3. Exits with code `1`.
+
+This guarantees that even a mid-cycle crash will not leave the Android device stranded with a wrong date. The nested catch ensures that even if `Restore-RealTime` itself fails, the outer error is still reported cleanly.
+
+<Note>
+  `script.ps1` uses a fixed, hardcoded reward flow calibrated for one specific game layout. If you need a configurable sequence — editable tap coordinates, reorderable steps, multiple saved profiles — use the web panel launched via `server.ps1` or `iniciar.bat`.
+</Note>
+
+## server.ps1 parameter
+
+`server.ps1` accepts a single parameter for changing the listening port:
+
+<ParamField query="Puerto" type="integer" default="8790">
+  The TCP port the HTTP server listens on. The server binds exclusively to `127.0.0.1` (loopback only) and is never accessible from the network. Change this only if port 8790 is already in use on your machine.
+</ParamField>
+
+```powershell
+powershell -ExecutionPolicy Bypass -File server.ps1 -Puerto 9000
+```
